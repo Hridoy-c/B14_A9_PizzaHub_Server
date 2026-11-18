@@ -51,12 +51,25 @@ app.get('/users', async (req, res) => {
 
 
 // pizzas related apis
-app.post('/pizzas/new', async (req, res) => {
-    const newPizza = req.body;
-    const result = await pizzasCollection.insertOne(newPizza);
-    res.send(result);
-});
+app.post("/api/pizzas", async (req, res) => {
+  try {
+    const pizza = {
+      ...req.body,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
 
+    const result = await pizzasCollection.insertOne(pizza);
+
+    res.status(201).json({
+      success: true,
+      message: "Pizza created",
+      insertedId: result.insertedId,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
 
 app.listen(port, () => {
     console.log(`Server is running on port ${port}`);
