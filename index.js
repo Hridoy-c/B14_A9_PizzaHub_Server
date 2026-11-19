@@ -27,9 +27,10 @@ export async function connectToMongoDB() {
 
 const connection = await connectToMongoDB();
 const db= connection.db("Pizza_hub");
-const usersCollection = db.collection("user");
-const pizzasCollection = db.collection("pizzas");
+const usersCollection = db.collection("users");
+const menuItemsCollection = db.collection("menuItems");
 const ordersCollection = db.collection("orders");
+const transactionsCollection = db.collection("transactions");
 
 
 
@@ -52,26 +53,31 @@ app.get('/users', async (req, res) => {
 
 // pizzas related apis
 
-app.get("/api/pizzas", async (req, res) => {
+app.get("/api/menu", async (req, res) => {
   try {
-    const result = await pizzasCollection.find().toArray();
-    res.send(result);
+    const items = await menuItemsCollection
+      .find({ status: "approved" })
+      .sort({ createdAt: -1 })
+      .toArray();
+
+    res.json(items);
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 });
 
-
-app.get("/api/pizza/:id", async (req, res) => {
+app.get("/api/menu/:id", async (req, res) => {
   try {
     const { id } = req.params;
 
-    // ID টা বৈধ ObjectId কিনা আগে যাচাই করুন
     if (!ObjectId.isValid(id)) {
       return res.status(400).json({ success: false, message: "Invalid item id" });
     }
 
-    const result = await pizzasCollection.findOne({ _id: new ObjectId(id) });
+    const result = await menuItemsCollection.findOne({
+      _id: new ObjectId(id),
+      status: "approved", // শুধু approved item public-এ দেখাবে
+    });
 
     if (!result) {
       return res.status(404).json({ success: false, message: "Item not found" });
@@ -83,20 +89,20 @@ app.get("/api/pizza/:id", async (req, res) => {
   }
 });
 
-
-app.post("/api/pizzas", async (req, res) => {
+app.post("/api/menu", async (req, res) => {
   try {
     const pizza = {
       ...req.body,
+      status: "pending", // client যা-ই পাঠাক, সবসময় pending
       createdAt: new Date(),
       updatedAt: new Date(),
     };
 
-    const result = await pizzasCollection.insertOne(pizza);
+    const result = await menuItemsCollection.insertOne(pizza);
 
     res.status(201).json({
       success: true,
-      message: "Pizza created",
+      message: "Pizza created, pending approval",
       insertedId: result.insertedId,
     });
   } catch (error) {
