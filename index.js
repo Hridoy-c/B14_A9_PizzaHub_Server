@@ -1,7 +1,7 @@
 import express from 'express';
 import 'dotenv/config';
 import cors from 'cors';
-import { MongoClient } from 'mongodb';
+import { MongoClient, ObjectId } from 'mongodb';
 
 
 const app = express();
@@ -51,6 +51,39 @@ app.get('/users', async (req, res) => {
 
 
 // pizzas related apis
+
+app.get("/api/pizzas", async (req, res) => {
+  try {
+    const result = await pizzasCollection.find().toArray();
+    res.send(result);
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+
+app.get("/api/pizza/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // ID টা বৈধ ObjectId কিনা আগে যাচাই করুন
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).json({ success: false, message: "Invalid item id" });
+    }
+
+    const result = await pizzasCollection.findOne({ _id: new ObjectId(id) });
+
+    if (!result) {
+      return res.status(404).json({ success: false, message: "Item not found" });
+    }
+
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+
 app.post("/api/pizzas", async (req, res) => {
   try {
     const pizza = {
