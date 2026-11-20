@@ -360,6 +360,103 @@ app.get("/api/orders/customer/:customerId", async (req, res) => {
   }
 });
 
+app.get("/api/orders/vendor/:vendorId", async (req, res) => {
+  try {
+    const orders = await ordersCollection
+      .aggregate([
+        { $match: { vendorId: req.params.vendorId } },
+        { $sort: { createdAt: -1 } },
+        {
+          $lookup: {
+            from: "menuItems",
+            localField: "itemId",
+            foreignField: "_id",
+            as: "item",
+          },
+        },
+        { $unwind: { path: "$item", preserveNullAndEmptyArrays: true } },
+        {
+          $addFields: {
+            customerObjectId: {
+              $convert: {
+                input: "$customerId",
+                to: "objectId",
+                onError: null,
+                onNull: null,
+              },
+            },
+          },
+        },
+        {
+          $lookup: {
+            from: "user",
+            localField: "customerObjectId",
+            foreignField: "_id",
+            as: "customer",
+          },
+        },
+        { $unwind: { path: "$customer", preserveNullAndEmptyArrays: true } },
+        {
+          $project: {
+            itemId: 1,
+            vendorId: 1,
+            customerId: 1,
+            deliveryDate: 1,
+            deliveryAddress: 1,
+            message: 1,
+            status: 1,
+            createdAt: 1,
+            "item.name": 1,
+            "item.image": 1,
+            "item.images": 1,
+            "item.price": 1,
+            "item.category": 1,
+            "customer.name": 1,
+            "customer.email": 1,
+            "customer.image": 1,
+          },
+        },
+      ])
+      .toArray();
+
+    res.json(orders);
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+app.patch("/api/orders/:id/status", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status, vendorId } = req.body; // accepted | rejected
+
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).json({ success: false, message: "Invalid order id" });
+    }
+    if (!["accepted", "rejected"].includes(status)) {
+      return res.status(400).json({ success: false, message: "Invalid status" });
+    }
+    if (!vendorId) {
+      return res.status(400).json({ success: false, message: "Missing vendor" });
+    }
+
+    const result = await ordersCollection.updateOne(
+      { _id: new ObjectId(id), vendorId, status: "pending" },
+      { $set: { status, updatedAt: new Date() } },
+    );
+
+    if (result.matchedCount === 0) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Order not found or already handled" });
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
 });
