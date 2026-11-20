@@ -457,6 +457,67 @@ app.patch("/api/orders/:id/status", async (req, res) => {
   }
 });
 
+
+// Edit
+app.patch("/api/menu/:id", async (req, res) => {
+  try {
+    if (!ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ success: false, message: "Invalid item id" });
+    }
+    const _id = new ObjectId(req.params.id);
+
+    const { name, description, price } = req.body;
+    const update = { updatedAt: new Date() };
+
+    if (name !== undefined) {
+      if (!String(name).trim()) {
+        return res.status(400).json({ success: false, message: "Name is required" });
+      }
+      update.name = String(name).trim();
+    }
+    if (description !== undefined) {
+      if (!String(description).trim()) {
+        return res.status(400).json({ success: false, message: "Description is required" });
+      }
+      update.description = String(description).trim();
+    }
+    if (price !== undefined) {
+      if (!(Number(price) > 0)) {
+        return res.status(400).json({ success: false, message: "Price must be greater than 0" });
+      }
+      update.price = Number(price);
+    }
+
+    const result = await menuItemsCollection.updateOne({ _id }, { $set: update });
+    if (result.matchedCount === 0) {
+      return res.status(404).json({ success: false, message: "Item not found" });
+    }
+
+    res.json({ success: true, message: "Item updated" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Delete
+app.delete("/api/menu/:id", async (req, res) => {
+  try {
+    if (!ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ success: false, message: "Invalid item id" });
+    }
+
+    const result = await menuItemsCollection.deleteOne({ _id: new ObjectId(req.params.id) });
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ success: false, message: "Item not found" });
+    }
+
+    res.json({ success: true, message: "Item deleted" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
 });
