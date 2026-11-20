@@ -44,10 +44,28 @@ app.get("/users", async (req, res) => {
 });
 
 
+const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 app.get("/api/menu", async (req, res) => {
   try {
+    const { q, category, location } = req.query;
+
+    const query = { status: "approved" };
+
+    if (typeof q === "string" && q.trim()) {
+      query.name = { $regex: escapeRegex(q.trim()), $options: "i" };
+    }
+
+    if (typeof category === "string" && category) {
+      query.category = category;
+    }
+
+    if (typeof location === "string" && location) {
+      query.location = location;
+    }
+
     const items = await menuItemsCollection
-      .find({ status: "approved" })
+      .find(query)
       .sort({ createdAt: -1 })
       .toArray();
 
@@ -56,7 +74,6 @@ app.get("/api/menu", async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 });
-
 app.get("/api/menu/vendor/:vendorId", async (req, res) => {
   try {
     const items = await menuItemsCollection
