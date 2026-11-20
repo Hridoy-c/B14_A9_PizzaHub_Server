@@ -318,6 +318,48 @@ app.post("/api/orders", async (req, res) => {
   }
 });
 
+app.get("/api/orders/customer/:customerId", async (req, res) => {
+  try {
+    const orders = await ordersCollection
+      .aggregate([
+        { $match: { customerId: req.params.customerId } },
+        { $sort: { createdAt: -1 } },
+        {
+          $lookup: {
+            from: "menuItems",
+            localField: "itemId",
+            foreignField: "_id",
+            as: "item",
+          },
+        },
+        { $unwind: { path: "$item", preserveNullAndEmptyArrays: true } },
+        {
+          $project: {
+            itemId: 1,
+            vendorId: 1,
+            customerId: 1,
+            deliveryDate: 1,
+            deliveryAddress: 1,
+            message: 1,
+            status: 1,
+            createdAt: 1,
+            "item.name": 1,
+            "item.image": 1,
+            "item.images": 1,
+            "item.price": 1,
+            "item.category": 1,
+            "item.vendorName": 1,
+          },
+        },
+      ])
+      .toArray();
+
+    res.json(orders);
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
 });
