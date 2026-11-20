@@ -34,6 +34,8 @@ app.get("/", (req, res) => {
   res.send("Hello World!");
 });
 
+// users relatad api
+
 app.get("/users", async (req, res) => {
   try {
     const result = await usersCollection.find().toArray();
@@ -44,9 +46,10 @@ app.get("/users", async (req, res) => {
 });
 
 
+// menu relatad api
 const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-app.get("/api/menu", async (req, res) => {
+ app.get("/api/menu", async (req, res) => {
   try {
     const { q, category, location } = req.query;
 
@@ -74,6 +77,9 @@ app.get("/api/menu", async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 });
+
+
+
 app.get("/api/menu/vendor/:vendorId", async (req, res) => {
   try {
     const items = await menuItemsCollection
@@ -253,6 +259,62 @@ app.patch("/api/admin/menu/:id/status", async (req, res) => {
   } catch (error) {
     console.error("Update status error:", error);
     res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+
+
+// orders relatad api
+
+
+app.post("/api/orders", async (req, res) => {
+  try {
+    const { itemId, customerId, deliveryDate, deliveryAddress, message } =
+      req.body;
+
+    if (!ObjectId.isValid(itemId)) {
+      return res.status(400).json({ success: false, message: "Invalid item id" });
+    }
+    if (!customerId) {
+      return res.status(400).json({ success: false, message: "Missing customer" });
+    }
+
+    const date = new Date(deliveryDate);
+    if (Number.isNaN(date.getTime())) {
+      return res.status(400).json({ success: false, message: "Invalid delivery date" });
+    }
+    if (!deliveryAddress || !String(deliveryAddress).trim()) {
+      return res.status(400).json({ success: false, message: "Delivery address is required" });
+    }
+
+    const item = await menuItemsCollection.findOne({
+      _id: new ObjectId(itemId),
+      status: "approved",
+    });
+    if (!item) {
+      return res.status(404).json({ success: false, message: "Item not found" });
+    }
+
+    const order = {
+      itemId: item._id,
+      vendorId: item.vendorId,
+      customerId,
+      deliveryDate: date,
+      deliveryAddress: String(deliveryAddress).trim(),
+      message: String(message || "").trim(),
+      status: "pending", // pending | accepted | rejected | cancelled
+      createdAt: new Date(),
+    };
+
+    const result = await ordersCollection.insertOne(order);
+
+    res.status(201).json({
+      success: true,
+      message: "Order placed",
+      insertedId: result.insertedId,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
   }
 });
 
